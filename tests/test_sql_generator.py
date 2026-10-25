@@ -111,6 +111,9 @@ def test_build_sql_prompt_constraints():
     assert "字段名必须来自下面的 schema" in prompt
     assert "单条 SELECT" in prompt
     assert "中文注释" in prompt
+    assert "如果对日期/时间字段做比较、分组或提取，必须显式进行类型转换" in prompt
+    assert "CAST(created_at AS DATE)" in prompt
+    assert "不要假设输入数据已经是 DATE 类型" in prompt
 
     assert "orders" in prompt
     for column in ["order_id", "sale_name", "amount", "status", "order_time"]:

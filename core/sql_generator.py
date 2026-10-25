@@ -70,6 +70,9 @@ def _build_sql_prompt(
         "2. 字段名必须来自下面的 schema，不许编造。",
         "3. 输出必须是单条 SELECT 语句，不加解释，不加 markdown 代码块。",
         "4. 用中文注释解释每个 CTE 或关键步骤。",
+        "5. 如果对日期/时间字段做比较、分组或提取，必须显式进行类型转换"
+        "（例如 CAST(created_at AS DATE) 或 strftime(CAST(created_at AS DATE), '%Y-%m')），"
+        "不要假设输入数据已经是 DATE 类型。",
         "",
         f"表结构（SQL 中统一使用表 t 指代「{schema.table_name}」）：",
         "t: " + "，".join(columns),
