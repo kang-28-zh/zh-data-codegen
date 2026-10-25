@@ -76,6 +76,19 @@ def test_chinese_columns_quoted_and_reparse():
     sqlglot.parse(result, dialect="duckdb")
 
 
+def test_guard_quotes_chinese_alias():
+    """中文别名也必须自动加双引号，包括不在 schema 里的别名。"""
+    # 测试 SQL 用表 t，把 schema 表名对齐为 t
+    schema_t = SCHEMA.model_copy(update={"table_name": "t"})
+
+    result = ensure_read_only("SELECT amount AS 金额 FROM t", schema_t)
+    assert 'AS "金额"' in result
+
+    # 真实冒烟场景：别名不在 schema 里，也必须加引号
+    renamed = ensure_read_only("SELECT order_time AS 月份 FROM t", schema_t)
+    assert 'AS "月份"' in renamed
+
+
 def test_subquery_allowed():
     """FROM 子查询应放行。"""
     sql = "SELECT * FROM (SELECT order_id, amount FROM orders WHERE amount > 0) AS t"

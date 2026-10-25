@@ -164,17 +164,16 @@ def _validate_columns(
         raise ValueError(f"[sql_guard] 字段不存在：{display}")
 
 
-def _quote_chinese_identifiers(root: exp.Expression, schema: SchemaInfo) -> None:
-    """只给来自 schema 的中文列名 / 表名加双引号，字符串字面量不受影响。"""
-    schema_names = {column.name for column in schema.columns}
-    if schema.table_name:
-        schema_names.add(schema.table_name)
+def _quote_chinese_identifiers(root: exp.Expression) -> None:
+    """给所有未加引号的中文标识符补双引号（列名、别名、表名）。
 
+    字符串字面量不是 exp.Identifier，不受影响。
+    """
     for identifier in root.find_all(exp.Identifier):
         name = identifier.name
         if not name or name.isascii():
             continue
-        if name in schema_names:
+        if not identifier.args.get("quoted"):
             identifier.set("quoted", True)
 
 
@@ -210,5 +209,5 @@ def ensure_read_only(sql: str, schema: SchemaInfo) -> str:
         table_aliases,
     )
 
-    _quote_chinese_identifiers(root, schema)
+    _quote_chinese_identifiers(root)
     return root.sql(dialect="duckdb")
