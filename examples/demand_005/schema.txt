@@ -1,0 +1,5 @@
+CREATE TABLE 客户订单 (
+    客户号 TEXT,
+    订单时间 TIMESTAMP,
+    金额 DOUBLE
+)

@@ -1,0 +1,6 @@
+CREATE TABLE sales (
+    sales_name TEXT,
+    amount DOUBLE,
+    order_time TIMESTAMP,
+    status TEXT
+)
