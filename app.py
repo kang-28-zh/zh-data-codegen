@@ -271,7 +271,7 @@ def main() -> None:
 
     if st.button("生成并验证", type="primary"):
         if not api_key and not os.environ.get("OPENAI_API_KEY"):
-            st.error("请在左侧侧边栏配置您的 API Key 或配置环境变量")
+            st.error("请在右上角「⚙️ API 配置」中填写您的 API Key，或配置环境变量")
         else:
             inputs = {
                 "requirement": requirement,
