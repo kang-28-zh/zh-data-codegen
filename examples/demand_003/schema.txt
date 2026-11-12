@@ -1,0 +1,6 @@
+CREATE TABLE 订单明细 (
+    产品 TEXT,
+    状态 TEXT,
+    订单时间 TIMESTAMP,
+    金额 DOUBLE
+)

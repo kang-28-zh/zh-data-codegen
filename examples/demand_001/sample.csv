@@ -1,0 +1,8 @@
+order_id,customer_id,amount,status,order_time
+A001,C01,100,paid,2024-01-05
+A002,C02,150,paid,2024-01-10
+A003,C01,200,paid,2024-02-03
+A004,C03,120,refund,2024-02-08
+A005,C02,180,paid,2024-03-01
+A006,C01,90,paid,2024-03-15
+A007,C04,300,paid,2024-03-20

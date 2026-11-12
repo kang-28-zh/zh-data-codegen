@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# 项目运行时文件（不提交）
+storage/history.db
+storage/*.db
+
+# 环境
+.env
+.venv/
+venv/
+
+# 沙箱残留（不可删除的空目录，排除在仓库外）
+pytest-cache-files-*/
+storage/probe_*/
+
+# IDE
+.idea/
+.vscode/
+*.swp

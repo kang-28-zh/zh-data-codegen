@@ -1,0 +1,6 @@
+CREATE TABLE 订单 (
+    订单号 TEXT,
+    客户名 TEXT,
+    金额 DOUBLE,
+    来源 TEXT
+)
