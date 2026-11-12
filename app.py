@@ -43,9 +43,38 @@ DEFAULT_SAMPLE_CSV = """order_id,customer_id,amount,status,created_at
 8,105,80.00,paid,2024-02-15"""
 
 
-def _run_generation(inputs: dict) -> dict:
-    """执行完整生成流程，所有异常都转成结构化结果。"""
+def _apply_api_override(api_config: dict) -> dict:
+    """临时把侧边栏配置写入环境变量，返回原值以便恢复。"""
+    keys = ("OPENAI_API_KEY", "OPENAI_BASE_URL", "MODEL_NAME")
+    previous = {key: os.environ.get(key) for key in keys}
+    os.environ["OPENAI_API_KEY"] = api_config["api_key"]
+    os.environ["OPENAI_BASE_URL"] = (
+        api_config.get("base_url") or "https://api.deepseek.com/v1"
+    )
+    os.environ["MODEL_NAME"] = api_config.get("model_name") or "deepseek-chat"
+    return previous
+
+
+def _restore_api_env(previous: dict) -> None:
+    """恢复生成前的环境变量。"""
+    for key, value in previous.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
+
+
+def _run_generation(inputs: dict, api_config: dict | None = None) -> dict:
+    """执行完整生成流程，所有异常都转成结构化结果。
+
+    如果传入 api_config 且包含 api_key，会在本次生成期间覆盖环境变量，
+    生成结束后恢复原值；未传则完全走环境变量。
+    """
+    previous = None
     try:
+        if api_config and api_config.get("api_key"):
+            previous = _apply_api_override(api_config)
+
         schema = parse_schema(inputs["schema_text"])
         parsed = parse_requirement(inputs["requirement"], schema)
 
@@ -72,6 +101,9 @@ def _run_generation(inputs: dict) -> dict:
         }
     except Exception as exc:  # 页面不能白屏，统一转结构化错误
         return {"success": False, "error": str(exc)}
+    finally:
+        if previous is not None:
+            _restore_api_env(previous)
 
 
 def _save_run(inputs: dict, result: dict) -> None:
@@ -193,41 +225,66 @@ def main() -> None:
     )
     st.title("一问三式 | 中文需求 -> 数据处理代码 + 自动测试")
     st.info(
-        "💡 为了方便体验，已为您预填了「复购率」的示例数据，"
-        "直接点击下方【生成并验证】即可查看效果。"
+        "💡 提示：输入框内为「复购率」的占位示例，"
+        "直接点击生成，或输入您的真实需求覆盖它。"
     )
 
-    if not os.environ.get("OPENAI_API_KEY"):
-        st.warning("未检测到 OPENAI_API_KEY，生成会失败。请先配置环境变量后再试。")
+    with st.sidebar:
+        st.header("API 配置")
+        st.caption("这里填写的配置只对本次生成生效，留空则回退到环境变量。")
+        api_key = st.text_input(
+            "API Key",
+            type="password",
+            value=os.environ.get("OPENAI_API_KEY", ""),
+        )
+        base_url = st.text_input(
+            "Base URL",
+            value=os.environ.get("OPENAI_BASE_URL")
+            or "https://api.deepseek.com/v1",
+        )
+        model_name = st.text_input(
+            "Model Name",
+            value=os.environ.get("MODEL_NAME") or "deepseek-chat",
+        )
 
     requirement = st.text_area(
-        "中文业务需求", value=DEFAULT_REQUIREMENT, height=100
+        "中文业务需求", placeholder=DEFAULT_REQUIREMENT, height=100
     )
     schema_text = st.text_area(
         "表结构（CREATE TABLE 或自然语言列清单）",
-        value=DEFAULT_SCHEMA,
+        placeholder=DEFAULT_SCHEMA,
         height=160,
     )
     sample_csv = st.text_area(
-        "样例数据（CSV，5~20 行）", value=DEFAULT_SAMPLE_CSV, height=160
+        "样例数据（CSV，5~20 行）", placeholder=DEFAULT_SAMPLE_CSV, height=160
     )
     target_label = st.radio(
         "生成形态", list(TARGET_OPTIONS.keys()), horizontal=True, index=0
     )
 
     if st.button("生成并验证", type="primary"):
-        inputs = {
-            "requirement": requirement,
-            "schema_text": schema_text,
-            "sample_csv": sample_csv,
-            "target": TARGET_OPTIONS[target_label],
-        }
-        result = _run_generation(inputs)
-        st.session_state["last_result"] = result
-        try:
-            _save_run(inputs, result)
-        except Exception as exc:
-            st.warning(f"历史记录写入失败：{exc}")
+        if not api_key and not os.environ.get("OPENAI_API_KEY"):
+            st.error("请在左侧侧边栏配置您的 API Key 或配置环境变量")
+        else:
+            inputs = {
+                "requirement": requirement,
+                "schema_text": schema_text,
+                "sample_csv": sample_csv,
+                "target": TARGET_OPTIONS[target_label],
+            }
+            result = _run_generation(
+                inputs,
+                api_config={
+                    "api_key": api_key,
+                    "base_url": base_url,
+                    "model_name": model_name,
+                },
+            )
+            st.session_state["last_result"] = result
+            try:
+                _save_run(inputs, result)
+            except Exception as exc:
+                st.warning(f"历史记录写入失败：{exc}")
 
     result = st.session_state.get("last_result")
     if result:
