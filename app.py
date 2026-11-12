@@ -223,29 +223,36 @@ def main() -> None:
     st.set_page_config(
         page_title="一问三式 | 中文需求 -> 数据处理代码 + 自动测试", layout="wide"
     )
-    st.title("一问三式 | 中文需求 -> 数据处理代码 + 自动测试")
+    title_col, config_col = st.columns([8, 2])
+    with title_col:
+        st.title("一问三式 | 中文需求 -> 数据处理代码 + 自动测试")
+    with config_col:
+        # 优先用右上角弹层；旧版 Streamlit 回退到 expander
+        if hasattr(st, "popover"):
+            config_container = st.popover("⚙️ API 配置")
+        else:
+            config_container = st.expander("⚙️ API 配置")
+        with config_container:
+            st.caption("这里填写的配置只对本次生成生效，留空则回退到环境变量。")
+            api_key = st.text_input(
+                "API Key",
+                type="password",
+                value=os.environ.get("OPENAI_API_KEY", ""),
+            )
+            base_url = st.text_input(
+                "Base URL",
+                value=os.environ.get("OPENAI_BASE_URL")
+                or "https://api.deepseek.com/v1",
+            )
+            model_name = st.text_input(
+                "Model Name",
+                value=os.environ.get("MODEL_NAME") or "deepseek-chat",
+            )
+
     st.info(
         "💡 提示：输入框内为「复购率」的占位示例，"
         "直接点击生成，或输入您的真实需求覆盖它。"
     )
-
-    with st.sidebar:
-        st.header("API 配置")
-        st.caption("这里填写的配置只对本次生成生效，留空则回退到环境变量。")
-        api_key = st.text_input(
-            "API Key",
-            type="password",
-            value=os.environ.get("OPENAI_API_KEY", ""),
-        )
-        base_url = st.text_input(
-            "Base URL",
-            value=os.environ.get("OPENAI_BASE_URL")
-            or "https://api.deepseek.com/v1",
-        )
-        model_name = st.text_input(
-            "Model Name",
-            value=os.environ.get("MODEL_NAME") or "deepseek-chat",
-        )
 
     requirement = st.text_area(
         "中文业务需求", placeholder=DEFAULT_REQUIREMENT, height=100
