@@ -215,7 +215,12 @@ def test_run_generation_returns_dict(monkeypatch):
             "schema_text": case["schema_text"],
             "sample_csv": case["sample_csv"],
             "target": "sql",
-        }
+        },
+        api_config={
+            "api_key": "sk-test",
+            "base_url": "https://example.com/v1",
+            "model_name": "test-model",
+        },
     )
 
     assert result["success"] is True
@@ -239,7 +244,12 @@ def test_run_generation_catches_exception(monkeypatch):
             "schema_text": case["schema_text"],
             "sample_csv": case["sample_csv"],
             "target": "sql",
-        }
+        },
+        api_config={
+            "api_key": "sk-test",
+            "base_url": "https://example.com/v1",
+            "model_name": "test-model",
+        },
     )
 
     assert result == {"success": False, "error": "解析炸了"}

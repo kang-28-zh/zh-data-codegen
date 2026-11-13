@@ -4,10 +4,10 @@
 生成逻辑全部在 _run_generation 内，异常统一捕获为结构化结果。
 """
 
-import os
-
 import streamlit as st
 
+from core.config import DEFAULT_BASE_URL, DEFAULT_MODEL_NAME, Settings
+from core.llm import clear_settings_override, set_settings_override
 from core.pandas_generator import generate_pandas
 from core.requirement_parser import parse_requirement
 from core.schema_parser import parse_schema
@@ -43,38 +43,26 @@ DEFAULT_SAMPLE_CSV = """order_id,customer_id,amount,status,created_at
 8,105,80.00,paid,2024-02-15"""
 
 
-def _apply_api_override(api_config: dict) -> dict:
-    """临时把侧边栏配置写入环境变量，返回原值以便恢复。"""
-    keys = ("OPENAI_API_KEY", "OPENAI_BASE_URL", "MODEL_NAME")
-    previous = {key: os.environ.get(key) for key in keys}
-    os.environ["OPENAI_API_KEY"] = api_config["api_key"]
-    os.environ["OPENAI_BASE_URL"] = (
-        api_config.get("base_url") or "https://api.deepseek.com/v1"
-    )
-    os.environ["MODEL_NAME"] = api_config.get("model_name") or "deepseek-chat"
-    return previous
-
-
-def _restore_api_env(previous: dict) -> None:
-    """恢复生成前的环境变量。"""
-    for key, value in previous.items():
-        if value is None:
-            os.environ.pop(key, None)
-        else:
-            os.environ[key] = value
-
-
 def _run_generation(inputs: dict, api_config: dict | None = None) -> dict:
     """执行完整生成流程，所有异常都转成结构化结果。
 
-    如果传入 api_config 且包含 api_key，会在本次生成期间覆盖环境变量，
-    生成结束后恢复原值；未传则完全走环境变量。
+    强制要求调用方提供用户自己的 api_key；缺失时直接返回错误，
+    不允许回退到系统环境变量。
     """
-    previous = None
-    try:
-        if api_config and api_config.get("api_key"):
-            previous = _apply_api_override(api_config)
+    if not (api_config and api_config.get("api_key")):
+        return {
+            "success": False,
+            "error": "请先在右上角「⚙️ API 配置」中填写您自己的 API Key",
+        }
 
+    set_settings_override(
+        Settings(
+            openai_api_key=api_config["api_key"],
+            openai_base_url=api_config.get("base_url") or DEFAULT_BASE_URL,
+            model_name=api_config.get("model_name") or DEFAULT_MODEL_NAME,
+        )
+    )
+    try:
         schema = parse_schema(inputs["schema_text"])
         parsed = parse_requirement(inputs["requirement"], schema)
 
@@ -102,8 +90,7 @@ def _run_generation(inputs: dict, api_config: dict | None = None) -> dict:
     except Exception as exc:  # 页面不能白屏，统一转结构化错误
         return {"success": False, "error": str(exc)}
     finally:
-        if previous is not None:
-            _restore_api_env(previous)
+        clear_settings_override()
 
 
 def _save_run(inputs: dict, result: dict) -> None:
@@ -233,21 +220,10 @@ def main() -> None:
         else:
             config_container = st.expander("⚙️ API 配置")
         with config_container:
-            st.caption("这里填写的配置只对本次生成生效，留空则回退到环境变量。")
-            api_key = st.text_input(
-                "API Key",
-                type="password",
-                value=os.environ.get("OPENAI_API_KEY", ""),
-            )
-            base_url = st.text_input(
-                "Base URL",
-                value=os.environ.get("OPENAI_BASE_URL")
-                or "https://api.deepseek.com/v1",
-            )
-            model_name = st.text_input(
-                "Model Name",
-                value=os.environ.get("MODEL_NAME") or "deepseek-chat",
-            )
+            st.caption("这里填写的配置只对本次生成生效。")
+            api_key = st.text_input("API Key", type="password", value="")
+            base_url = st.text_input("Base URL", value=DEFAULT_BASE_URL)
+            model_name = st.text_input("Model Name", value=DEFAULT_MODEL_NAME)
 
     st.info(
         "💡 提示：输入框内为「复购率」的占位示例，"
@@ -270,8 +246,8 @@ def main() -> None:
     )
 
     if st.button("生成并验证", type="primary"):
-        if not api_key and not os.environ.get("OPENAI_API_KEY"):
-            st.error("请在右上角「⚙️ API 配置」中填写您的 API Key，或配置环境变量")
+        if not api_key:
+            st.error("请先在右上角「⚙️ API 配置」中填写您自己的 API Key")
         else:
             inputs = {
                 "requirement": requirement,
